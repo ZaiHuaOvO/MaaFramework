@@ -141,7 +141,10 @@ class Tasker:
         return self._gen_task_job(taskid)
 
     def post_recognition(
-        self, reco_type: JRecognitionType, reco_param: JRecognitionParam, image: numpy.ndarray
+        self,
+        reco_type: JRecognitionType,
+        reco_param: JRecognitionParam,
+        image: numpy.ndarray,
     ) -> JobWithResult:
         """异步执行识别 / Asynchronously execute recognition
 
@@ -165,7 +168,11 @@ class Tasker:
         return self._gen_task_job(taskid)
 
     def post_action(
-        self, action_type: JActionType, action_param: JActionParam, box: Rect = (0, 0, 0, 0), reco_detail: str = ""
+        self,
+        action_type: JActionType,
+        action_param: JActionParam,
+        box: Rect = (0, 0, 0, 0),
+        reco_detail: str = "",
     ) -> JobWithResult:
         """异步执行操作 / Asynchronously execute action
 
@@ -180,7 +187,9 @@ class Tasker:
         """
         rect_buffer = RectBuffer()
         rect_buffer.set(box)
-        action_param_json = json.dumps(dataclasses.asdict(action_param), ensure_ascii=False)
+        action_param_json = json.dumps(
+            dataclasses.asdict(action_param), ensure_ascii=False
+        )
         taskid = Library.framework().MaaTaskerPostAction(
             self._handle,
             action_type.encode(),
@@ -378,13 +387,18 @@ class Tasker:
             return None
 
         raw_detail = json.loads(detail_json.get())
-        algorithm: AlgorithmEnum = AlgorithmEnum(algorithm.get())
-        parsed_detail = Tasker._parse_recognition_raw_detail(algorithm, raw_detail)
+        algorithm_str = algorithm.get()
+        parsed_detail = self._parse_recognition_raw_detail(algorithm_str, raw_detail)
+
+        try:
+            algorithm_enum = AlgorithmEnum(algorithm_str)
+        except ValueError:
+            algorithm_enum = algorithm_str  # type: ignore
 
         return RecognitionDetail(
             reco_id=reco_id,
             name=name.get(),
-            algorithm=algorithm,
+            algorithm=algorithm_enum,
             hit=bool(hit),
             box=bool(hit) and box.get() or None,
             all_results=parsed_detail[0],
@@ -396,6 +410,14 @@ class Tasker:
         )
 
     def get_action_detail(self, action_id: int) -> Optional[ActionDetail]:
+        """获取操作信息 / Get action info
+
+        Args:
+            action_id: 操作号 / Action id
+
+        Returns:
+            Optional[ActionDetail]: 操作详情，如果不存在则返回 None / Action detail, or None if not exists
+        """
         name = StringBuffer()
         action = StringBuffer()
         box = RectBuffer()
@@ -418,8 +440,13 @@ class Tasker:
             return None
 
         raw_detail = json.loads(detail_json.get())
-        action_enum: ActionEnum = ActionEnum(action.get())
-        parsed_result = Tasker._parse_action_raw_detail(action_enum, raw_detail)
+        action_str = action.get()
+        parsed_result = Tasker._parse_action_raw_detail(action_str, raw_detail)
+
+        try:
+            action_enum = ActionEnum(action_str)
+        except ValueError:
+            action_enum = action_str  # type: ignore
 
         return ActionDetail(
             action_id=action_id,
@@ -634,6 +661,44 @@ class Tasker:
         )
 
     @staticmethod
+    def set_draw_quality(quality: int) -> bool:
+        """设置识别可视化图像的 JPEG 质量 / Set the JPEG quality for recognition visualization images
+
+        Args:
+            quality: JPEG 质量（0-100），默认 85 / JPEG quality (0-100), default 85
+
+        Returns:
+            bool: 是否成功 / Whether successful
+        """
+        cquality = ctypes.c_int(quality)
+        return bool(
+            Library.framework().MaaGlobalSetOption(
+                MaaOption(MaaGlobalOptionEnum.DrawQuality),
+                ctypes.pointer(cquality),
+                ctypes.sizeof(ctypes.c_int),
+            )
+        )
+
+    @staticmethod
+    def set_reco_image_cache_limit(limit: int) -> bool:
+        """设置识别图像缓存数量限制 / Set the recognition image cache limit
+
+        Args:
+            limit: 缓存数量限制，默认 4096 / Cache limit, default 4096
+
+        Returns:
+            bool: 是否成功 / Whether successful
+        """
+        climit = ctypes.c_size_t(limit)
+        return bool(
+            Library.framework().MaaGlobalSetOption(
+                MaaOption(MaaGlobalOptionEnum.RecoImageCacheLimit),
+                ctypes.pointer(climit),
+                ctypes.sizeof(ctypes.c_size_t),
+            )
+        )
+
+    @staticmethod
     def load_plugin(path: Union[Path, str]) -> bool:
         """加载插件 / Load plugin
 
@@ -655,14 +720,31 @@ class Tasker:
 
     _api_properties_initialized: bool = False
 
-    @staticmethod
-    def _parse_recognition_raw_detail(algorithm: AlgorithmEnum, raw_detail: Dict):
+    def _parse_recognition_raw_detail(self, algorithm: str, raw_detail):
         if not raw_detail:
             return [], [], None
 
-        ResultType = AlgorithmResultDict[algorithm]
+        try:
+            algorithm_enum = AlgorithmEnum(algorithm)
+        except ValueError:
+            return [], [], None
+
+        ResultType = AlgorithmResultDict.get(algorithm_enum)
         if not ResultType:
             return [], [], None
+
+        # And/Or 的 detail 是子识别结果数组，递归获取完整的 RecognitionDetail
+        if algorithm_enum in (AlgorithmEnum.And, AlgorithmEnum.Or):
+            sub_results = []
+            for sub in raw_detail:
+                reco_id = sub.get("reco_id")
+                if not reco_id:
+                    continue
+                sub_detail = self.get_recognition_detail(reco_id)
+                if sub_detail:
+                    sub_results.append(sub_detail)
+            result = ResultType(sub_results=sub_results)
+            return [result], [result], result
 
         all_results: List[RecognitionResult] = []
         filtered_results: List[RecognitionResult] = []
@@ -683,12 +765,17 @@ class Tasker:
 
     @staticmethod
     def _parse_action_raw_detail(
-        action: ActionEnum, raw_detail: Dict
+        action: str, raw_detail: Dict
     ) -> Optional[ActionResult]:
         if not raw_detail:
             return None
 
-        ResultType = ActionResultDict[action]
+        try:
+            action_enum = ActionEnum(action)
+        except ValueError:
+            return None
+
+        ResultType = ActionResultDict.get(action_enum)
         if not ResultType:
             return None
 

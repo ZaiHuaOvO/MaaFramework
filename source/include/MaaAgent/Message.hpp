@@ -14,7 +14,7 @@ MAA_AGENT_NS_BEGIN
 // ReverseRequest: server -> client
 
 using MessageTypePlaceholder = int;
-inline static constexpr int kProtocolVersion = 5;
+inline static constexpr int kProtocolVersion = 6;
 
 struct StartUpRequest
 {
@@ -387,7 +387,7 @@ struct ContextGetHitCountReverseRequest
 
 struct ContextGetHitCountReverseResponse
 {
-    uint64_t count = 0;
+    size_t count = 0;
 
     MessageTypePlaceholder _ContextGetHitCountReverseResponse = 1;
     MEO_JSONIZATION(count, _ContextGetHitCountReverseResponse);
@@ -733,6 +733,57 @@ struct ResourcePostBundleReverseResponse
 
     MessageTypePlaceholder _ResourcePostBundleReverseResponse = 1;
     MEO_JSONIZATION(res_id, _ResourcePostBundleReverseResponse);
+};
+
+struct ResourcePostOcrModelReverseRequest
+{
+    std::string resource_id;
+    std::string path;
+
+    MessageTypePlaceholder _ResourcePostOcrModelReverseRequest = 1;
+    MEO_JSONIZATION(resource_id, path, _ResourcePostOcrModelReverseRequest);
+};
+
+struct ResourcePostOcrModelReverseResponse
+{
+    int64_t res_id = 0;
+
+    MessageTypePlaceholder _ResourcePostOcrModelReverseResponse = 1;
+    MEO_JSONIZATION(res_id, _ResourcePostOcrModelReverseResponse);
+};
+
+struct ResourcePostPipelineReverseRequest
+{
+    std::string resource_id;
+    std::string path;
+
+    MessageTypePlaceholder _ResourcePostPipelineReverseRequest = 1;
+    MEO_JSONIZATION(resource_id, path, _ResourcePostPipelineReverseRequest);
+};
+
+struct ResourcePostPipelineReverseResponse
+{
+    int64_t res_id = 0;
+
+    MessageTypePlaceholder _ResourcePostPipelineReverseResponse = 1;
+    MEO_JSONIZATION(res_id, _ResourcePostPipelineReverseResponse);
+};
+
+struct ResourcePostImageReverseRequest
+{
+    std::string resource_id;
+    std::string path;
+
+    MessageTypePlaceholder _ResourcePostImageReverseRequest = 1;
+    MEO_JSONIZATION(resource_id, path, _ResourcePostImageReverseRequest);
+};
+
+struct ResourcePostImageReverseResponse
+{
+    int64_t res_id = 0;
+
+    MessageTypePlaceholder _ResourcePostImageReverseResponse = 1;
+    MEO_JSONIZATION(res_id, _ResourcePostImageReverseResponse);
 };
 
 struct ResourceStatusReverseRequest
@@ -1344,6 +1395,16 @@ struct ImageHeader
     MessageTypePlaceholder _ImageHeader = 1;
 
     MEO_JSONIZATION(uuid, rows, cols, type, size, _ImageHeader);
+};
+
+struct ImageEncodedHeader
+{
+    std::string uuid;
+    size_t size = 0;
+
+    MessageTypePlaceholder _ImageEncodedHeader = 1;
+
+    MEO_JSONIZATION(uuid, size, _ImageEncodedHeader);
 };
 
 MAA_AGENT_NS_END

@@ -43,6 +43,9 @@ public:
     virtual bool set_option(MaaResOption key, MaaOptionValue value, MaaOptionValueSize val_size) = 0;
 
     virtual MaaResId post_bundle(const std::filesystem::path& path) = 0;
+    virtual MaaResId post_ocr_model(const std::filesystem::path& path) = 0;
+    virtual MaaResId post_pipeline(const std::filesystem::path& path) = 0;
+    virtual MaaResId post_image(const std::filesystem::path& path) = 0;
 
     virtual MaaStatus status(MaaResId res_id) const = 0;
     virtual MaaStatus wait(MaaResId res_id) const = 0;
@@ -158,7 +161,7 @@ public:
 
     virtual void set_anchor(const std::string& anchor_name, const std::string& node_name) = 0;
     virtual std::optional<std::string> get_anchor(const std::string& anchor_name) const = 0;
-    virtual uint get_hit_count(const std::string& node_name) const = 0;
+    virtual size_t get_hit_count(const std::string& node_name) const = 0;
     virtual void clear_hit_count(const std::string& node_name) = 0;
 };
 
